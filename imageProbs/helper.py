@@ -33,6 +33,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms, models
 
+# For Transformer
+import transformers
+from transformers import AutoTokenizer, BertModel
+from transformers import AdamW
+from transformers import get_linear_schedule_with_warmup
+
 
 import warnings
 warnings.filterwarnings("ignore")
