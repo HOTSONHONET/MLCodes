@@ -20,10 +20,10 @@ from pprint import pprint
 import time
 import cv2
 from enum import Enum
-
+from IPython.display import display
 
 # For Data preparation
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import *
 from sklearn.model_selection import *
 from sklearn.metrics import *
 
@@ -91,24 +91,44 @@ def buildGridImages(df: "data_file", img_path_col_name: str, label_col_name: str
     """
 
     df = df.sample(nrows*ncols)
-    mapper = dict(zip(df[img_path_col_name].values,
-                  data_df[label_col_name].values))
-    keys = list(mapper.keys())
+    paths = df[img_path_col_name].values
+    labels = df[label_col_name].values
+
     text_color = (255, 255, 255)
     box_color = (0, 0, 0)
 
     plt.figure(figsize=(20, 12))
     for i in range(nrows * ncols):
         plt.subplot(nrows, ncols, i+1)
-
-        label = str(mapper[keys[i]])
-        img = cv2.imread(keys[i])
+        img = cv2.imread(paths[i])
         img = cv2.resize(img, (img_size, img_size))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         plt.axis("off")
-        plt.title(mapper[keys[i]])
+        plt.title(str(labels[i]))
         plt.imshow(img)
 
     plt.tight_layout()
     plt.show()
+
+
+def create_folds_regression(data, target="target", num_splits=5):
+    """
+    Helper function to create folds
+
+    """
+    data["kfold"] = -1
+    data = data.sample(frac=1).reset_index(drop=True)
+
+    # Applying Sturg's rule to calculate the no. of bins for target
+    num_bins = int(1 + np.log2(len(data)))
+
+    data.loc[:, "bins"] = pd.cut(data[target], bins=num_bins, labels=False)
+
+    kf = StratifiedKFold(n_splits=num_splits)
+
+    for f, (t_, v_) in enumerate(kf.split(X=data, y=data.bins.values)):
+        data.loc[v_, 'kfold'] = f
+
+    data = data.drop(["bins"], axis=1)
+    return data
