@@ -83,3 +83,32 @@ def widthAndHeightDist(df: "data_file", col_name: "col name that contains the im
                         template="plotly_dark" if dark else "ggplot2")
     figH.update_layout(title='Distribution of Image Heights', title_x=0.5)
     figH.show()
+
+
+def buildGridImages(df: "data_file", img_path_col_name: str, label_col_name: str, nrows=5, ncols=4, img_size=512):
+    """
+    To build an image grid
+    """
+
+    df = df.sample(nrows*ncols)
+    mapper = dict(zip(df[img_path_col_name].values,
+                  data_df[label_col_name].values))
+    keys = list(mapper.keys())
+    text_color = (255, 255, 255)
+    box_color = (0, 0, 0)
+
+    plt.figure(figsize=(20, 12))
+    for i in range(nrows * ncols):
+        plt.subplot(nrows, ncols, i+1)
+
+        label = str(mapper[keys[i]])
+        img = cv2.imread(keys[i])
+        img = cv2.resize(img, (img_size, img_size))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        plt.axis("off")
+        plt.title(mapper[keys[i]])
+        plt.imshow(img)
+
+    plt.tight_layout()
+    plt.show()
