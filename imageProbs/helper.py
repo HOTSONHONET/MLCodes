@@ -46,6 +46,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms, models
 
+# Tensorflow modules
+import tensorflow as tf
+from tensorflow.keras.applications import *
+from tensorflow.keras.layers import *
+from tensorflow.keras.optimizers import *
+from tensorflow.keras.losses import *
+from tensorflow.keras.callbacks import *
+from tensorflow.keras.metrics import *
+from tensorflow.keras.utils import plot_model
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import *
+
+
 # For Transformer
 import transformers
 from transformers import AutoTokenizer, BertModel
