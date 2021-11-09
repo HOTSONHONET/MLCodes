@@ -21,6 +21,7 @@ import time
 import cv2
 from enum import Enum
 from IPython.display import display
+import random
 
 # For Data preparation
 from sklearn.preprocessing import *
@@ -68,6 +69,19 @@ from transformers import get_linear_schedule_with_warmup
 
 import warnings
 warnings.filterwarnings("ignore")
+
+
+def setSeed(seed):
+    """
+    Setting the seed of all the random function to maintain reproducibility
+
+    """
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ['TF_CUDNN_DETERMINISTIC'] = str(seed)
+    tf.random.set_seed(seed)
+    print('SEEDITIZATION DONE !')
 
 
 def giveHistogram(df: "data File", col_name: str, bins=None, dark=False):
