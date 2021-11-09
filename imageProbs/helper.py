@@ -266,3 +266,85 @@ def trainRegModels(df: "data_file", features: list, label: str):
     # Finally returning the summary dictionary as a dataframe
     summary_df = pd.DataFrame(summary)
     return summary_df
+
+
+def saveModelsKaggle(dir_name: str, title: "title of dataset", token_path="../input/kaggletoken/kaggle.json"):
+    """
+     > Helper function to automate the process of saving models 
+        as kaggle datasets using kaggle API   
+     > dir_name should be compatible with hyperlink formats
+
+    """
+    if not os.path.exists(token_path):
+        print("Token doesn't exist")
+        return
+
+    if not os.path.exists(f"./{dir_name}"):
+        print("Directory doesn't exist")
+        return
+
+    os.system(
+        f"""
+        
+        pip install kaggle
+        cp {token_path} ./
+        cp ./kaggle.json ../../root/
+        mkdir ../../root/.kaggle
+        mv ../../root/kaggle.json ../../root/.kaggle/kaggle.json
+
+        chmod 600 /root/.kaggle/kaggle.json
+        kaggle datasets init -p ./{dir_name}
+        
+        """
+    )
+    # Upto this we will be having a meta data file in the form of a json
+    with open(f"./{dir_name}/dataset-metadata.json", 'r+') as file_:
+        meta_data = json.load(file_)
+        meta_data['title'] = f'{title}'
+        meta_data['id'] = f'hotsonhonet/{title}'
+        file_.seek(0)
+        json.dump(meta_data, file_, indent=4)
+        file_.truncate()
+
+    os.system(f"""
+        kaggle datasets create -p ./{dir_name} --dir-mode zip
+    """)
+
+    print("[INFO] Dataset saved successfully")
+
+
+def createDifferentImageShapeDataset(total_paths: "list of paths", folder_name="output"):
+    """
+
+    Helper function to reshape images and create dataset
+        > 512 X 512 imgs
+        > 224 X 224 imgs
+        > 128 X 128 imgs
+
+    """
+
+    shapes = [512, 224, 128]
+    cwd = os.getcwd()
+
+    parent_dir = f"{cwd}/{petFinder}"
+    if not os.path.exists(parent_dir):
+        os.mkdir(parent_dir)
+
+    for shape in shapes:
+        shape_dir = f"{parent_dir}/{shape}_images"
+        if not os.path.exists(shape_dir):
+            os.mkdir(shape_dir)
+        if not os.path.exists(f"{shape_dir}/train"):
+            os.mkdir(f"{shape_dir}/train")
+        if not os.path.exists(f"{shape_dir}/test"):
+            os.mkdir(f"{shape_dir}/test")
+
+        for i in trange(len(total_paths), desc=f"Reshaping Images to {shape}...", bar_format="{l_bar}%s{bar:50}%s{r_bar}" % (Fore.CYAN, Fore.RESET), position=0, leave=True):
+            dir_type = total_paths[i].split("/")[-2]
+            img_name = total_paths[i].split("/")[-1]
+            img = cv2.imread(total_paths[i])
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(img, (shape, shape),
+                             interpolation=cv2.INTER_NEAREST)
+
+            cv2.imwrite(f"{shape_dir}/{dir_type}/{img_name}", img)
