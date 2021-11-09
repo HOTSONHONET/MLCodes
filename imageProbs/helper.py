@@ -348,3 +348,54 @@ def createDifferentImageShapeDataset(total_paths: "list of paths", folder_name="
                              interpolation=cv2.INTER_NEAREST)
 
             cv2.imwrite(f"{shape_dir}/{dir_type}/{img_name}", img)
+
+
+class ImgDataLoader:
+    """
+    Gives img data in the form of batches
+
+    """
+
+    def __init__(self,
+                 df: "Data_File",
+                 path_col: list,
+                 target_col: str,
+                 regression_type=True,
+                 for_val=False,
+                 rescale=False,
+                 batch_size=32,
+                 img_shape=224
+                 ):
+
+        # Avoids bleaching of images
+        def convertToUint8(x):
+            x = x.astype('uint8')
+            return x
+
+        if for_val:
+            self.data_generator = ImageDataGenerator(
+                width_shift_range=0.2,
+                height_shift_range=0.2,
+                #                 shear_range=25,
+                zoom_range=0.3,
+                horizontal_flip=True,
+                vertical_flip=True,
+                rescale=1/255.0 if rescale else 1.0,
+            )
+        else:
+            self.data_generator = ImageDataGenerator(
+                rescale=1/255.0 if rescale else 1.0,
+            )
+
+        self.data_gen = self.data_generator.flow_from_dataframe(
+            dataframe=df,
+            x_col=path_col,
+            y_col=target_col,
+            target_size=(img_shape, img_shape),
+            class_mode="raw" if regression_type else "categorical",
+            batch_size=8 if for_val else 32,
+            shuffle=True,
+        )
+
+    def __call__(self):
+        return self.data_gen
