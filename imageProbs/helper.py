@@ -166,6 +166,14 @@ def rmse_score(y_label, y_preds):
     return np.sqrt(mean_squared_error(y_label, y_preds))
 
 
+def rmse_tf(y_label, y_preds):
+    """
+    Gives RMSE score, useful for NN training
+
+    """
+    return tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(y_label, y_preds))))
+
+
 def trainRegModels(df: "data_file", features: list, label: str):
     """
     To automate the training of regression models. Considering
