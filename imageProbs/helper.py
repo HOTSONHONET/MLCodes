@@ -22,6 +22,7 @@ import cv2
 from enum import Enum
 from IPython.display import display
 import random
+import inspect
 
 # For Data preparation
 from sklearn.preprocessing import *
@@ -69,6 +70,28 @@ from transformers import get_linear_schedule_with_warmup
 
 import warnings
 warnings.filterwarnings("ignore")
+# To ignore tensorflow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+
+print(
+    f"GPU is available : {tf.test.is_gpu_available(cuda_only=False, min_cuda_compute_capability=None)}")
+
+
+class Config(Enum):
+    '''
+    It basically contains all the path location and other stuffs
+
+    '''
+
+    def __str__(self):
+        return self.value
+
+    TRAIN_CSV = ""
+    TEST_CSV = ""
+    SAMPLE_CSV = ""
+    TRAIN_DIR = ""
+    TEST_DIR = ""
 
 
 def setSeed(seed):
@@ -151,25 +174,27 @@ def buildGridImages(df: "data_file", img_path_col_name: str, label_col_name: str
     plt.show()
 
 
-def create_folds_regression(data, target="target", num_splits=5):
+def create_folds(data, target="label", regression=True, num_splits=5):
     """
     Helper function to create folds
 
     """
     data["kfold"] = -1
     data = data.sample(frac=1).reset_index(drop=True)
-
-    # Applying Sturg's rule to calculate the no. of bins for target
-    num_bins = int(1 + np.log2(len(data)))
-
-    data.loc[:, "bins"] = pd.cut(data[target], bins=num_bins, labels=False)
-
     kf = StratifiedKFold(n_splits=num_splits)
 
-    for f, (t_, v_) in enumerate(kf.split(X=data, y=data.bins.values)):
-        data.loc[v_, 'kfold'] = f
+    if regression:
+        # Applying Sturg's rule to calculate the no. of bins for target
+        num_bins = int(1 + np.log2(len(data)))
 
-    data = data.drop(["bins"], axis=1)
+        data.loc[:, "bins"] = pd.cut(data[target], bins=num_bins, labels=False)
+        for f, (t_, v_) in enumerate(kf.split(X=data, y=data.bins.values)):
+            data.loc[v_, 'kfold'] = f
+        data = data.drop(["bins"], axis=1)
+    else:
+        for f, (t_, v_) in enumerate(kf.split(X=data, y=data[target].values)):
+            data.loc[v_, 'kfold'] = f
+
     return data
 
 
@@ -273,6 +298,7 @@ def saveModelsKaggle(dir_name: str, title: "title of dataset", token_path="../in
      > Helper function to automate the process of saving models 
         as kaggle datasets using kaggle API   
      > dir_name should be compatible with hyperlink formats
+     > Internet should be enabled
 
     """
     if not os.path.exists(token_path):
@@ -313,43 +339,6 @@ def saveModelsKaggle(dir_name: str, title: "title of dataset", token_path="../in
     print("[INFO] Dataset saved successfully")
 
 
-def createDifferentImageShapeDataset(total_paths: "list of paths", folder_name="output"):
-    """
-
-    Helper function to reshape images and create dataset
-        > 512 X 512 imgs
-        > 224 X 224 imgs
-        > 128 X 128 imgs
-
-    """
-
-    shapes = [512, 224, 128]
-    cwd = os.getcwd()
-
-    parent_dir = f"{cwd}/{petFinder}"
-    if not os.path.exists(parent_dir):
-        os.mkdir(parent_dir)
-
-    for shape in shapes:
-        shape_dir = f"{parent_dir}/{shape}_images"
-        if not os.path.exists(shape_dir):
-            os.mkdir(shape_dir)
-        if not os.path.exists(f"{shape_dir}/train"):
-            os.mkdir(f"{shape_dir}/train")
-        if not os.path.exists(f"{shape_dir}/test"):
-            os.mkdir(f"{shape_dir}/test")
-
-        for i in trange(len(total_paths), desc=f"Reshaping Images to {shape}...", bar_format="{l_bar}%s{bar:50}%s{r_bar}" % (Fore.CYAN, Fore.RESET), position=0, leave=True):
-            dir_type = total_paths[i].split("/")[-2]
-            img_name = total_paths[i].split("/")[-1]
-            img = cv2.imread(total_paths[i])
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (shape, shape),
-                             interpolation=cv2.INTER_NEAREST)
-
-            cv2.imwrite(f"{shape_dir}/{dir_type}/{img_name}", img)
-
-
 class ImgDataLoader:
     """
     Gives img data in the form of batches
@@ -361,41 +350,219 @@ class ImgDataLoader:
                  path_col: list,
                  target_col: str,
                  regression_type=True,
-                 for_val=False,
                  rescale=False,
                  batch_size=32,
-                 img_shape=224
+                 img_shape=224,
+                 resize_with_pad=False,
+                 do_augment=False,
+                 repeat=False,
+                 shuffle=False
                  ):
 
-        # Avoids bleaching of images
-        def convertToUint8(x):
-            x = x.astype('uint8')
-            return x
+        self.df = df
+        self.path_col = path_col
+        self.target_col = target_col
+        self.regression_type = regression_type
+        self.rescale = rescale
+        self.batch_size = batch_size
+        self.img_shape = img_shape
+        self.resize_with_pad = resize_with_pad
+        self.do_augment = do_augment
+        self.repeat = repeat
+        self.shuffle = shuffle
 
-        if for_val:
-            self.data_generator = ImageDataGenerator(
-                width_shift_range=0.2,
-                height_shift_range=0.2,
-                #                 shear_range=25,
-                zoom_range=0.3,
-                horizontal_flip=True,
-                vertical_flip=True,
-                rescale=1/255.0 if rescale else 1.0,
-            )
+    @tf.function
+    def doAugment(self, img: "Tensor"):
+        """
+        Perform augmentation over the image tensor
+        """
+        img = tf.image.random_flip_left_right(img)
+        img = tf.image.random_flip_up_down(img)
+        img = tf.image.random_saturation(img, 0.95, 1.05)
+        img = tf.image.random_brightness(img, 0.05)
+        img = tf.image.random_contrast(img, 0.95, 1.05)
+        img = tf.image.random_hue(img, 0.05)
+
+        return img
+
+    @tf.function
+    def process_img(self, path: str, label=None):
+        """
+        A function to apply augmentation and process the images
+
+        """
+        img = tf.io.read_file(path)
+        img = tf.image.decode_jpeg(img, channels=3)
+        img = tf.cast(img, dtype=tf.float32)
+
+        if self.rescale:
+            img = img/255.0
+
+        if self.resize_with_pad:
+            img = tf.image.resize_with_pad(img, self.img_shape, self.img_shape)
         else:
-            self.data_generator = ImageDataGenerator(
-                rescale=1/255.0 if rescale else 1.0,
-            )
+            img = tf.image.resize(img, (self.img_shape, self.img_shape))
 
-        self.data_gen = self.data_generator.flow_from_dataframe(
-            dataframe=df,
-            x_col=path_col,
-            y_col=target_col,
-            target_size=(img_shape, img_shape),
-            class_mode="raw" if regression_type else "categorical",
-            batch_size=8 if for_val else 32,
-            shuffle=True,
-        )
+        if self.do_augment:
+            img = self.doAugment(img)
+
+        if label is not None:
+            return img, label
+
+        return img
 
     def __call__(self):
-        return self.data_gen
+        if self.target_col is not None:
+            data_gen = tf.data.Dataset.from_tensor_slices(
+                (self.df[self.path_col].values, self.df[self.target_col].values))
+        else:
+            data_gen = tf.data.Dataset.from_tensor_slices(
+                (self.df[self.path_col].values))
+
+        AUTOTUNE = tf.data.experimental.AUTOTUNE
+
+        data_gen = data_gen.map(self.process_img, num_parallel_calls=AUTOTUNE)
+        if self.repeat:
+            data_gen = data_gen.repeat()
+
+        if self.shuffle:
+            data_gen = data_gen.shuffle(1024, reshuffle_each_iteration=True)
+
+        return data_gen.batch(self.batch_size).prefetch(AUTOTUNE)
+
+
+def trainEngine(tf_model: "tf compiled model", data_df: "cv dataframe"):
+    """
+    It will take the model and will perfrom the full k-folds training
+        > model : can be a class with __call__ method or a function
+
+    """
+
+    def givePlotsInOne(training_summary: dict, useDark=False, title="Plot"):
+        """
+        Helper function to plot the training result
+        """
+
+        fig = go.Figure()
+        for k in summary.keys():
+            if(k != "epochs"):
+                fig.add_trace(go.Scatter(x=summary["epochs"], y=summary[k],
+                                         mode='lines+markers',
+                                         name=k))
+
+                fig.update_layout(
+                    title_text=title,
+                    title_x=.5,
+                    xaxis_title="Epochs",
+                    yaxis_title="Values",
+                    template="plotly_dark" if useDark else "ggplot2"
+                )
+
+        fig.show()
+
+    def train_model(tf_model):
+        model = tf_model()
+
+        K.clear_session()
+        LEARNING_RATE = 1e-2
+        DECAY_STEPS = 100
+        DECAY_RATE = 0.99
+
+        lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=LEARNING_RATE,
+            decay_steps=DECAY_STEPS, decay_rate=DECAY_RATE,
+            staircase=True
+        )
+
+        # Creating an early stopper
+        early_stop = tf.keras.callbacks.EarlyStopping(
+            monitor='val_loss', patience=3, restore_best_weights=True
+        )
+
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=lr_schedule),
+            loss=tf.keras.losses.MeanSquaredError(),
+            metrics=[tf.keras.metrics.RootMeanSquaredError()]
+        )
+
+        training_history = model.fit_generator(
+            train_data_gen,
+            validation_data=val_data_gen,
+            epochs=Config.EPOCHS.value,
+            verbose=1,
+            use_multiprocessing=True,
+            workers=-1,
+        )
+        return training_history
+
+    folds = max(data_df['kfold'])
+    for fold in range(folds):
+        print(Fore.GREEN)
+        print("_ "*20, "\n")
+        print(f"{' '*11}Current Fold : {fold + 1}")
+        print("_ "*20, "\n")
+
+        train_data = data_df.loc[data_df.kfold != fold]
+        val_data = data_df.loc[data_df.kfold == fold]
+
+        train_data_gen = ImgDataLoader(
+            train_data,
+            "path",
+            "Pawpularity",
+            rescale=True,
+            img_shape=Config.IMG_SHAPE.value,
+            do_augment=True,
+            repeat=False,
+            shuffle=True
+        )()
+        val_data_gen = ImgDataLoader(
+            val_data,
+            "path",
+            "Pawpularity",
+            rescale=True,
+            img_shape=Config.IMG_SHAPE.value,
+            do_augment=False,
+            repeat=False,
+            shuffle=False
+        )()
+
+        training_history = train_model(tf_model)
+
+        summary = {
+            "epochs": [d for d in range(1, Config.EPOCHS.value + 1)],
+            "loss": training_history.history['loss'],
+            "val_loss": training_history.history['val_loss'],
+            #             "lr" : training_history.history['lr']
+        }
+
+        givePlotsInOne(training_summary=summary, useDark=False,
+                       title=f"For Fold {fold + 1}")
+
+
+def loadModels(arch: "function or location of json file", weightFiles: "location of weight files"):
+    """
+    Helper function to load all the models produced in cross validation training
+        > arch : class with __call__ / function() / JSON file path
+        > weightFile location : location of the file that contains h5 files
+        > return: List of models
+
+    """
+
+    weightFiles = glob(weightFiles + "/*.h5")
+    models = []
+
+    if type(arch) == str:
+        json_file = open(arch, 'r')
+        loaded_model_json = json_file.read()
+        json_file.close()
+
+    for wfile in weightFiles:
+        if type(arch) == str:
+            model = tf.keras.model.from_json(loaded_model_json)
+        else:
+            model = arch()
+
+        model.load_weights(wfile)
+        models.append(model)
+
+    return models
