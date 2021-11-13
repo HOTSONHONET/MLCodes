@@ -198,99 +198,12 @@ def create_folds(data, target="label", regression=True, num_splits=5):
     return data
 
 
-def rmse_score(y_label, y_preds):
-    """
-    Gives RMSE score
-    """
-    return np.sqrt(mean_squared_error(y_label, y_preds))
-
-
 def rmse_tf(y_label, y_preds):
     """
     Gives RMSE score, useful for NN training
 
     """
     return tf.sqrt(tf.reduce_mean(tf.square(tf.subtract(y_label, y_preds))))
-
-
-def trainRegModels(df: "data_file", features: list, label: str):
-    """
-    To automate the training of regression models. Considering
-        > RMSE
-        > R2 score
-
-    """
-    regModels = {
-        "LinearRegression": LinearRegression(),
-        "KNeighborsRegressor": KNeighborsRegressor(n_neighbors=2),
-        "AdaBoostRegressor": AdaBoostRegressor(random_state=0, n_estimators=100),
-        "LGBMRegressor": LGBMRegressor(),
-        "Ridge": Ridge(alpha=1.0),
-        "ElasticNet": ElasticNet(random_state=0),
-        "GradientBoostingRegressor": GradientBoostingRegressor(random_state=0),
-        "DecisionTreeRegressor": DecisionTreeRegressor(),
-        "ExtraTreesRegressor": ExtraTreesRegressor(n_jobs=-1),
-        "RandomForestRegressor": RandomForestRegressor(n_jobs=-1),
-        "XGBRegressor": XGBRegressor(n_jobs=-1),
-        "CatBoostRegressor": CatBoostRegressor(iterations=900, depth=5, learning_rate=0.05, loss_function='RMSE'),
-    }
-
-    # Will return this as a data frame
-    summary = {
-        "Model": [],
-        "Avg R2 Train Score": [],
-        "Avg R2 Val Score": [],
-        "Avg RSME Train Score": [],
-        "Avg RSME Val Score": []
-    }
-
-    # Training
-    for idx in trange(len(regModels.keys()), desc="Models are training...", bar_format="{l_bar}%s{bar:50}%s{r_bar}" % (Fore.CYAN, Fore.RESET), position=0, leave=True):
-        name = list(regModels.keys())[idx]
-        model = regModels[name]
-
-        # Initializing all the scores to 0
-        r2_train = 0
-        r2_val = 0
-        rmse_train = 0
-        rmse_val = 0
-
-        # Running K-fold Cross-validation on every model
-        for fold in range(5):
-            train_df = df.loc[df.kfold != fold].reset_index(drop=True)
-            val_df = df.loc[df.kfold == fold].reset_index(drop=True)
-
-            train_X = train_df[features]
-            train_Y = train_df[label]
-            val_X = val_df[features]
-            val_Y = val_df[label]
-
-            cur_model = model
-            if name == 'CatBoostRegressor':
-                cur_model.fit(train_X, train_Y, verbose=False)
-            else:
-                cur_model.fit(train_X, train_Y)
-
-            Y_train_preds = model.predict(train_X)
-            Y_val_preds = model.predict(val_X)
-
-            # Collecting the scores
-            r2_train += r2_score(train_Y, Y_train_preds)
-            r2_val += r2_score(val_Y, Y_val_preds)
-
-            rmse_train += rmse_score(train_Y, Y_train_preds)
-            rmse_val += rmse_score(val_Y, Y_val_preds)
-
-        # Pushing the scores and the Model names
-        summary["Model"].append(name)
-        summary["Avg R2 Train Score"].append(r2_train/5)
-        summary["Avg R2 Val Score"].append(r2_val/5)
-        summary["Avg RSME Train Score"].append(rmse_train/5)
-        summary["Avg RSME Val Score"].append(rmse_val/5)
-
-    # Finally returning the summary dictionary as a dataframe
-    summary_df = pd.DataFrame(summary)
-    return summary_df
 
 
 def saveModelsKaggle(dir_name: str, title: "title of dataset", token_path="../input/kaggletoken/kaggle.json"):
