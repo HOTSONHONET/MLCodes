@@ -269,7 +269,8 @@ class ImgDataLoader:
                  resize_with_pad=False,
                  do_augment=False,
                  repeat=False,
-                 shuffle=False
+                 shuffle=False,
+                 preprocess_function=None
                  ):
 
         self.df = df
@@ -292,9 +293,9 @@ class ImgDataLoader:
         img = tf.image.random_flip_left_right(img)
         img = tf.image.random_flip_up_down(img)
         img = tf.image.random_saturation(img, 0.95, 1.05)
-        img = tf.image.random_brightness(img, 0.05)
+        img = tf.image.random_brightness(img, 0.02)
         img = tf.image.random_contrast(img, 0.95, 1.05)
-        img = tf.image.random_hue(img, 0.05)
+#         img = tf.image.random_hue(img, 0.05)
 
         return img
 
@@ -315,6 +316,10 @@ class ImgDataLoader:
             img = tf.image.resize_with_pad(img, self.img_shape, self.img_shape)
         else:
             img = tf.image.resize(img, (self.img_shape, self.img_shape))
+
+        # Newly added line
+        if preprocess_function is not None:
+            img = preprocess_function(img)
 
         if self.do_augment:
             img = self.doAugment(img)
