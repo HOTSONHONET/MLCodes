@@ -349,7 +349,7 @@ class ImgDataLoader:
         return data_gen.batch(self.batch_size).prefetch(AUTOTUNE)
 
 
-def trainEngine(tf_model: "tf compiled model", data_df: "cv dataframe"):
+def trainEngine(tf_model: "tf compiled model", tf_model_name: "give a name to model", data_df: "cv dataframe"):
     """
     It will take the model and will perfrom the full k-folds training
         > model : can be a class with __call__ method or a function
@@ -378,7 +378,7 @@ def trainEngine(tf_model: "tf compiled model", data_df: "cv dataframe"):
 
         fig.show()
 
-    def train_model(tf_model):
+    def train_model(tf_model: "TF model", fold: int):
         model = tf_model()
 
         K.clear_session()
@@ -392,9 +392,20 @@ def trainEngine(tf_model: "tf compiled model", data_df: "cv dataframe"):
             staircase=True
         )
 
-        # Creating an early stopper
-        early_stop = tf.keras.callbacks.EarlyStopping(
+        # Creating Callbacks
+        early_stop = EarlyStopping(
             monitor='val_loss', patience=3, restore_best_weights=True
+        )
+
+        if not os.path.exists(f"./{tf_model_name}"):
+            os.mkdir(f"./{tf_model_name}")
+
+        model_chkpt = ModelCheckpoint(
+            monitor='val_loss',
+            patient=3,
+            mode='min',
+            save_best_only=True,
+            filepath=f"./{tf_model_name}/{fold}.h5"
         )
 
         model.compile(
@@ -410,12 +421,13 @@ def trainEngine(tf_model: "tf compiled model", data_df: "cv dataframe"):
             verbose=1,
             use_multiprocessing=True,
             workers=-1,
+            callbacks=[early_stop, model_chkpt]
         )
         return training_history
 
-    folds = max(data_df['kfold'])
+    folds = max(data_df['kfold']) + 1
     for fold in range(folds):
-        print(Fore.GREEN)
+        print(Fore.BLUE)
         print("_ "*20, "\n")
         print(f"{' '*11}Current Fold : {fold + 1}")
         print("_ "*20, "\n")
@@ -431,7 +443,8 @@ def trainEngine(tf_model: "tf compiled model", data_df: "cv dataframe"):
             img_shape=Config.IMG_SHAPE.value,
             do_augment=True,
             repeat=False,
-            shuffle=True
+            shuffle=True,
+            batch_size=32,
         )()
         val_data_gen = ImgDataLoader(
             val_data,
@@ -441,10 +454,11 @@ def trainEngine(tf_model: "tf compiled model", data_df: "cv dataframe"):
             img_shape=Config.IMG_SHAPE.value,
             do_augment=False,
             repeat=False,
-            shuffle=False
+            shuffle=False,
+            batch_size=16
         )()
 
-        training_history = train_model(tf_model)
+        training_history = train_model(tf_model, fold)
 
         summary = {
             "epochs": [d for d in range(1, Config.EPOCHS.value + 1)],

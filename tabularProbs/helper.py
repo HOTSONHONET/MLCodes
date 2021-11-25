@@ -88,6 +88,34 @@ def giveHistogram(df: "data File", col_name: str, bins=None, dark=False):
     fig.show()
 
 
+def plotCorrelation(df: "dataFrame"):
+    """
+
+    Helper function to plot correlation plot
+
+    """
+    data = [
+        go.Heatmap(
+            z=df.corr().values,
+            x=df.columns.values,
+            y=df.columns.values,
+            colorscale='Rainbow',
+            reversescale=False,
+            #                 text = True,
+            opacity=1.0)
+    ]
+
+    layout = go.Layout(
+        title='Pearson Correlation plot',
+        title_x=0.5,
+        xaxis=dict(ticks='', nticks=36),
+        yaxis=dict(ticks=''),
+        width=900, height=700)
+
+    fig = go.Figure(data=data, layout=layout)
+    fig.show()
+
+
 def plot_scatterMatrix(df: "dataframe", cols: list):
     """
     Helper function to plot scatter matrix
@@ -260,12 +288,6 @@ def saveModelsKaggle(dir_name: str, title: "title of dataset", token_path="../in
 
 
 def trainClfModels(df: "data_file", features: list, label: str):
-    from sklearn.linear_model import LogisticRegression
-    from xgboost import XGBClassifier
-    from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
-    from sklearn.tree import DecisionTreeClassifier
-    from lightgbm import LGBMClassifier
-    from catboost import CatBoostClassifier
     """
     To automate the training of regression models. Considering
         > Accuracy
