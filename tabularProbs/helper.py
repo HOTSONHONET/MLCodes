@@ -5,6 +5,7 @@ Importing Libraries
 
 
 # Standard imports
+from IPython.display import HTMLdef explainData(df: "dataFrame", fileName="Summary.html"):
 import os
 import pandas as pd
 import numpy as np
@@ -23,6 +24,8 @@ import time
 import cv2
 from enum import Enum
 from IPython.display import display
+from pandas_profiling import ProfileReport
+from IPython.display import HTML
 import random
 import inspect
 
@@ -86,6 +89,15 @@ def giveHistogram(df: "data File", col_name: str, bins=None, dark=False):
         title_x=0.5,
     )
     fig.show()
+
+
+    """
+    Helper function to show summary of dataFrame in an interactive manner
+
+    """
+    data_df_report = ProfileReport(data_df)
+    data_df_report.to_file(output_file=fileName)
+    HTML(filename=fileName)
 
 
 def plotCorrelation(df: "dataFrame"):
