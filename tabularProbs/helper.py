@@ -5,7 +5,6 @@ Importing Libraries
 
 
 # Standard imports
-from IPython.display import HTMLdef explainData(df: "dataFrame", fileName="Summary.html"):
 import os
 import pandas as pd
 import numpy as np
@@ -23,9 +22,8 @@ from pprint import pprint
 import time
 import cv2
 from enum import Enum
-from IPython.display import display
+from IPython.display import display, HTML
 from pandas_profiling import ProfileReport
-from IPython.display import HTML
 import random
 import inspect
 
