@@ -170,12 +170,11 @@ def rmse_score(y_label, y_preds):
     return np.sqrt(mean_squared_error(y_label, y_preds))
 
 
-def trainRegModels(df: "data_file", features: list, label: str):
+def trainRegModels(df: "data_file", useStandardization: bool, features: list, label: str, sortByRMSE = True):
     """
     To automate the training of regression models. Considering
         > RMSE
         > R2 score
-
     """
     regModels = {
         "LinearRegression": LinearRegression(),
@@ -203,7 +202,7 @@ def trainRegModels(df: "data_file", features: list, label: str):
 
     # Training
     folds = 1 + max(df.kfold.values)
-    for idx in trange(len(regModels.keys()), desc="Models are training...", bar_format="{l_bar}%s{bar:50}%s{r_bar}" % (Fore.CYAN, Fore.RESET), position=0, leave=True):
+    for idx in trange(len(regModels.keys()), desc=f"Models are training, LABEL: {label}...", bar_format="{l_bar}%s{bar:50}%s{r_bar}" % (Fore.CYAN, Fore.RESET), position=0, leave=True):
         name = list(regModels.keys())[idx]
         model = regModels[name]
 
@@ -222,7 +221,12 @@ def trainRegModels(df: "data_file", features: list, label: str):
             train_Y = train_df[label]
             val_X = val_df[features]
             val_Y = val_df[label]
-
+            
+            if useStandardization:
+                ss = StandardScaler()
+                ss.fit_transform(train_X)
+                ss.transform(val_X)
+                
             cur_model = model
             if name == 'CatBoostRegressor':
                 cur_model.fit(train_X, train_Y, verbose=False)
@@ -248,6 +252,10 @@ def trainRegModels(df: "data_file", features: list, label: str):
 
     # Finally returning the summary dictionary as a dataframe
     summary_df = pd.DataFrame(summary)
+    if sortByRMSE:
+        summary_df = summary_df.sort_values(["Avg RSME Val Score", "Avg R2 Val Score"], ascending = True)
+    else:
+        summary_df = summary_df.sort_values(["Avg R2 Val Score", "Avg RSME Val Score", ], ascending = True)
     return summary_df
 
 
