@@ -4,8 +4,10 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 import matplotlib.pyplot as plt
 import plotly.figure_factory as ff
+from skimage import io
 import ast
 
 import seaborn as sns
