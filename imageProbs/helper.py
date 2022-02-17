@@ -11,8 +11,11 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objs as go
 import matplotlib.pyplot as plt
+import plotly.figure_factory as ff
+import ast
+
 import seaborn as sns
-from tqdm import trange
+from tqdm import trange, tqdm
 from colorama import Fore
 from glob import glob
 import json
@@ -20,7 +23,8 @@ from pprint import pprint
 import time
 import cv2
 from enum import Enum
-from IPython.display import display
+from IPython.display import display, HTML
+from pandas_profiling import ProfileReport
 import random
 import inspect
 
