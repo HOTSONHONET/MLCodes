@@ -175,3 +175,13 @@ def trainYoloModel(model_name: str, config_filename: str, preTrainedWeights_path
                 python yolov5/train.py --img {Config.IMG_SHAPE.value} --batch {Config.BATCH_SIZE.value} --epochs {Config.EPOCHS.value} --data yolov5/{config_filename}.yaml --cfg {model} --name {model_name}
             """
         )
+
+        
+  def predict(images_path:"path to the test images", weights_path: "path to the weights folder"):
+    """
+    Helper function to make predictions over images using Yolo
+    """
+    os.system(
+        f"""
+            python yolov5/detect.py --source {images_path} --weights {weights_path}
+        """)
