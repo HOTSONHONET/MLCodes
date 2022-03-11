@@ -78,9 +78,9 @@ class Config(Enum):
 def giveHistogram(df: "data File", col_name: str, bins=None, dark=False):
     """
     To create histogram plots
-
     """
-    fig = px.histogram(df, x=col_name, template="plotly_dark" if dark else "ggplot2",
+    color = col_name if len(df[col_name].unique()) < 8 else None
+    fig = px.histogram(df, x=col_name, color=color, template="plotly_dark" if dark else "ggplot2",
                        nbins=bins if bins != None else 1 + int(np.log2(len(df))))
     fig.update_layout(
         title_text=f"Distribution of {col_name}",
@@ -89,20 +89,9 @@ def giveHistogram(df: "data File", col_name: str, bins=None, dark=False):
     fig.show()
 
 
-    """
-    Helper function to show summary of dataFrame in an interactive manner
-
-    """
-    data_df_report = ProfileReport(data_df)
-    data_df_report.to_file(output_file=fileName)
-    HTML(filename=fileName)
-
-
 def plotCorrelation(df: "dataFrame"):
     """
-
     Helper function to plot correlation plot
-
     """
     data = [
         go.Heatmap(
@@ -135,14 +124,13 @@ def plot_scatterMatrix(df: "dataframe", cols: list):
     # scatter matrix
     fig = ff.create_scatterplotmatrix(data_matrix, diag='box', index='index', colormap='Portland',
                                       colormap_type='cat',
-                                      height=700, width=700)
+                                      height=1200, width=1200)
     fig.show()
 
 
 def create_folds(data, target="label", regression=True, num_splits=5):
     """
     Helper function to create folds
-
     """
     data["kfold"] = -1
     data = data.sample(frac=1).reset_index(drop=True)
@@ -170,25 +158,25 @@ def rmse_score(y_label, y_preds):
     return np.sqrt(mean_squared_error(y_label, y_preds))
 
 
-def trainRegModels(df: "data_file", useStandardization: bool, features: list, label: str, sortByRMSE = True):
+def trainRegModels(df: "data_file", useStandardization: bool, features: list, label: str, sortByRMSE=True):
     """
     To automate the training of regression models. Considering
         > RMSE
         > R2 score
     """
     regModels = {
-        "LinearRegression": LinearRegression(),
-        "KNeighborsRegressor": KNeighborsRegressor(n_neighbors=2),
+        #         "LinearRegression": LinearRegression(),
+        #         "KNeighborsRegressor": KNeighborsRegressor(n_neighbors=2),
         "AdaBoostRegressor": AdaBoostRegressor(random_state=0, n_estimators=100),
-        "LGBMRegressor": LGBMRegressor(),
-        "Ridge": Ridge(alpha=1.0),
-        "ElasticNet": ElasticNet(random_state=0),
+        #         "LGBMRegressor": LGBMRegressor(),
+        #         "Ridge": Ridge(alpha=1.0),
+        #         "ElasticNet": ElasticNet(random_state=0),
         "GradientBoostingRegressor": GradientBoostingRegressor(random_state=0),
         "DecisionTreeRegressor": DecisionTreeRegressor(),
         "ExtraTreesRegressor": ExtraTreesRegressor(n_jobs=-1),
         "RandomForestRegressor": RandomForestRegressor(n_jobs=-1),
         "XGBRegressor": XGBRegressor(n_jobs=-1),
-        "CatBoostRegressor": CatBoostRegressor(iterations=900, depth=5, learning_rate=0.05, loss_function='RMSE'),
+        #         "CatBoostRegressor": CatBoostRegressor(iterations=900, depth=5, learning_rate=0.05, loss_function='RMSE'),
     }
 
     # Will return this as a data frame
@@ -196,8 +184,8 @@ def trainRegModels(df: "data_file", useStandardization: bool, features: list, la
         "Model": [],
         "Avg R2 Train Score": [],
         "Avg R2 Val Score": [],
-        "Avg RSME Train Score": [],
-        "Avg RSME Val Score": []
+        "Avg RMSE Train Score": [],
+        "Avg RMSE Val Score": []
     }
 
     # Training
@@ -221,12 +209,12 @@ def trainRegModels(df: "data_file", useStandardization: bool, features: list, la
             train_Y = train_df[label]
             val_X = val_df[features]
             val_Y = val_df[label]
-            
+
             if useStandardization:
                 ss = StandardScaler()
                 ss.fit_transform(train_X)
                 ss.transform(val_X)
-                
+
             cur_model = model
             if name == 'CatBoostRegressor':
                 cur_model.fit(train_X, train_Y, verbose=False)
@@ -247,15 +235,17 @@ def trainRegModels(df: "data_file", useStandardization: bool, features: list, la
         summary["Model"].append(name)
         summary["Avg R2 Train Score"].append(r2_train/folds)
         summary["Avg R2 Val Score"].append(r2_val/folds)
-        summary["Avg RSME Train Score"].append(rmse_train/folds)
-        summary["Avg RSME Val Score"].append(rmse_val/folds)
+        summary["Avg RMSE Train Score"].append(rmse_train/folds)
+        summary["Avg RMSE Val Score"].append(rmse_val/folds)
 
     # Finally returning the summary dictionary as a dataframe
     summary_df = pd.DataFrame(summary)
     if sortByRMSE:
-        summary_df = summary_df.sort_values(["Avg RSME Val Score", "Avg R2 Val Score"], ascending = True)
+        summary_df = summary_df.sort_values(
+            ["Avg RMSE Val Score", "Avg R2 Val Score"], ascending=True)
     else:
-        summary_df = summary_df.sort_values(["Avg R2 Val Score", "Avg RSME Val Score", ], ascending = True)
+        summary_df = summary_df.sort_values(
+            ["Avg R2 Val Score", "Avg RMSE Val Score", ], ascending=True)
     return summary_df
 
 
