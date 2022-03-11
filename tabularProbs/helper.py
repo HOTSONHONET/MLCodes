@@ -75,6 +75,36 @@ class Config(Enum):
     TEST_DIR = ""
 
 
+def giveFeatureImportance(model: "sckit-Learn model object", data: "dataFrame", features: list, label: str, test_size=0.2):
+    """
+    
+    Helper function to give feature importance plot
+    > if feature_importance_ attribute is available
+    
+    """
+
+    data_csv = data[[label] + features]
+    num_splits = int(1/test_size)
+    data_kf = create_folds(data=data_csv, target=label,
+                           regression=1, num_splits=5)
+
+    train_df = data_kf.loc[data_kf.kfold != 0]
+    val_df = data_kf.loc[data_kf.kfold == 0]
+
+    model.fit(X=train_df[Config.FEATURES.value],
+              y=train_df[Config.LABEL.value])
+    importance = model.feature_importances_
+    scores_features = list(zip(features, list(importance)))
+    df_imprt = pd.DataFrame({
+        'Features': features,
+        'Importance': importance
+    })
+    display(df_imprt)
+    fig = px.bar(df_imprt, x='Features', y='Importance',
+                 color='Features', template="plotly_dark")
+    fig.show()
+
+
 def giveHistogram(df: "data File", col_name: str, bins=None, dark=False):
     """
     To create histogram plots
