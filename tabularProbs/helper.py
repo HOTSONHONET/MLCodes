@@ -77,10 +77,10 @@ class Config(Enum):
 
 def giveFeatureImportance(model: "sckit-Learn model object", data: "dataFrame", features: list, label: str, test_size=0.2):
     """
-    
+
     Helper function to give feature importance plot
     > if feature_importance_ attribute is available
-    
+
     """
 
     data_csv = data[[label] + features]
@@ -97,10 +97,11 @@ def giveFeatureImportance(model: "sckit-Learn model object", data: "dataFrame", 
     scores_features = list(zip(features, list(importance)))
     df_imprt = pd.DataFrame({
         'Features': features,
-        'Importance': importance
+        'Importance(%)': list(map(lambda x: round(x, 3)*100, importance))
     })
+    df_imprt = df_imprt.sort_values(by=["Importance(%)"], ascending=0)
     display(df_imprt)
-    fig = px.bar(df_imprt, x='Features', y='Importance',
+    fig = px.bar(df_imprt, x='Features', y='Importance(%)',
                  color='Features', template="plotly_dark")
     fig.show()
 
